@@ -1,7 +1,32 @@
+import os
+from dotenv import load_dotenv
+
+# To run on your device, create a .env folder in the main foldier
+#   CLIENT_ID=your_reddit_client_id
+#   CLIENT_SECRET=your_reddit_client_secret
+#   USER_AGENT=your_script_name_by_/u/your_username
+
+load_dotenv()
+
+client_id = os.getenv("CLIENT_ID")
+client_secret = os.getenv("CLIENT_SECRET")
+user_agent = os.getenv("USER_AGENT")
+
+# TEST LOGIN CREDENTIALS
+""" 
+
+print(client_id)
+print(client_secret)
+print(user_agent)
+
+"""
+
 import praw
 
 reddit = praw.Reddit(
-    client_id="my client id",
-    client_secret="my client secret",
-    user_agent="my user agent",
+    client_id=client_id,
+    client_secret=client_secret,
+    user_agent=user_agent
 )
+for submission in reddit.subreddit("test").hot(limit=10):
+    print(submission.title)
