@@ -28,5 +28,10 @@ reddit = praw.Reddit(
     client_secret=client_secret,
     user_agent=user_agent
 )
-for submission in reddit.subreddit("test").hot(limit=10):
-    print(submission.title)
+
+for submission in reddit.subreddit("headphones").search("WHCH710N", limit=5):
+    print(f"\nTHREAD: \n{submission.title}")
+    submission.comments.replace_more(limit=0)  
+    
+    for comment in submission.comments.list():
+        print("COMMENTS\n", comment.body)
