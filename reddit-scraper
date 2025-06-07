@@ -1,18 +1,47 @@
 import os
 from dotenv import load_dotenv
+import csv
+import sqlite3
+import spacy
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import praw
 
-# To run on your device, create a .env folder in the main foldier
+# --- Initialize SQL lite db ---
+conn = sqlite3.connect("reddit_bifl.db")
+cursor = conn.cursor()
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS comments (
+    id TEXT PRIMARY KEY,
+    post_id TEXT,
+    body TEXT,
+    sentiment REAL,
+    product TEXT
+)
+''')
+conn.commit()
+
+# --- Create NLP using VADER ---
+analyzer = SentimentIntensityAnalyzer()
+nlp = spacy.load("en_core_web_sm")
+
+# helper function for extracing text from products
+def extract_products(text):
+    doc = nlp(text)
+    return [chunk.text for chunk in doc.noun_chunks if len(chunk.text.split()) <= 4]
+
+
+# --- To run on your device, create a .env folder in the main folder ---
 #   CLIENT_ID=your_reddit_client_id
 #   CLIENT_SECRET=your_reddit_client_secret
 #   USER_AGENT=your_script_name_by_/u/your_username
 
 load_dotenv()
-
 client_id = os.getenv("CLIENT_ID")
 client_secret = os.getenv("CLIENT_SECRET")
 user_agent = os.getenv("USER_AGENT")
 
-# TEST LOGIN CREDENTIALS
+# --- TEST LOGIN CREDENTIALS ---
 """ 
 
 print(client_id)
@@ -21,7 +50,6 @@ print(user_agent)
 
 """
 
-import praw
 
 reddit = praw.Reddit(
     client_id=client_id,
@@ -29,9 +57,23 @@ reddit = praw.Reddit(
     user_agent=user_agent
 )
 
-for submission in reddit.subreddit("headphones").search("WHCH710N", limit=5):
-    print(f"\nTHREAD: \n{submission.title}")
-    submission.comments.replace_more(limit=0)  
-    
-    for comment in submission.comments.list():
-        print("COMMENTS\n", comment.body)
+# --- SCRAPE POSTS AND COMMENTS  --- 
+for post in reddit.subreddit("BuyItForLife").hot(limit=10):
+    print(f"Scraping post: {post.title}")
+    post.comments.replace_more(limit=0)
+    for comment in post.comments.list():
+        if comment.body:
+            sentiment = analyzer.polarity_scores(comment.body)['compound']
+            products = extract_products(comment.body)
+            for product in products:
+                try:
+                    cursor.execute('''
+                        INSERT OR IGNORE INTO comments (id, post_id, body, sentiment, product)
+                        VALUES (?, ?, ?, ?, ?)
+                    ''', (comment.id, post.id, comment.body, sentiment, product))
+                except Exception as e:
+                    print(f"Error inserting comment {comment.id}: {e}")
+
+conn.commit()
+conn.close()
+print("END")
