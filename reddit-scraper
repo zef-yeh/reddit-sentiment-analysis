@@ -5,6 +5,7 @@ import sqlite3
 import spacy
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import praw
+import re
 
 # --- Initialize SQL lite db ---
 conn = sqlite3.connect("reddit_bifl.db")
@@ -25,10 +26,26 @@ conn.commit()
 analyzer = SentimentIntensityAnalyzer()
 nlp = spacy.load("en_core_web_sm")
 
+product_like_terms = [
+    "boots", "knife", "thermos", "jacket", "watch", "backpack",
+    "blender", "cast iron", "wallet", "mug", "tools", "chair", "flashlight",
+    "socks", "pen", "notebook", "headphones", "grill", "skillet"
+]
 # helper function for extracing text from products
-def extract_products(text):
+def extract_potential_products(text):
     doc = nlp(text)
-    return [chunk.text for chunk in doc.noun_chunks if len(chunk.text.split()) <= 4]
+    keywords = []
+    for chunk in doc.noun_chunks:
+        chunk_text = chunk.text.strip().lower()
+        if any(word in chunk_text for word in product_like_terms):
+            if len(chunk_text.split()) <= 4 and not chunk_text.startswith(("i", "mine", "you", "thanks")):
+                keywords.append(chunk_text)
+    return keywords
+
+def title_mentions_product(title):
+    title = title.lower()
+    return any(term in title for term in product_like_terms)
+
 
 
 # --- To run on your device, create a .env folder in the main folder ---
@@ -58,13 +75,22 @@ reddit = praw.Reddit(
 )
 
 # --- SCRAPE POSTS AND COMMENTS  --- 
-for post in reddit.subreddit("BuyItForLife").hot(limit=10):
-    print(f"Scraping post: {post.title}")
+for post in reddit.subreddit("BuyItForLife").hot(limit=30):
+    if not title_mentions_product(post.title):
+        continue  # Skip posts that don't mention a product
+
+    print(f"Scraping product post: {post.title}")
+    title_product = post.title.strip().lower()
+
     post.comments.replace_more(limit=0)
     for comment in post.comments.list():
         if comment.body:
             sentiment = analyzer.polarity_scores(comment.body)['compound']
-            products = extract_products(comment.body)
+            products = extract_potential_products(comment.body)
+
+            # Always associate comment with product from title
+            products = products if products else [title_product]
+
             for product in products:
                 try:
                     cursor.execute('''

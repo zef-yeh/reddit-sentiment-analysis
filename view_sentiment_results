@@ -1,0 +1,22 @@
+import sqlite3
+import pandas as pd
+import matplotlib.pyplot as plt
+
+conn = sqlite3.connect('reddit_bifl.db')
+
+query = '''
+SELECT 
+    product,
+    COUNT(*) AS mentions,
+    ROUND(AVG(sentiment), 3) AS avg_sentiment
+FROM comments
+GROUP BY product
+HAVING mentions > 2
+ORDER BY avg_sentiment DESC
+LIMIT 10
+'''
+df = pd.read_sql_query(query, conn)
+conn.close()
+
+print("Top-Rated BIFL Products by Sentiment:\n")
+print(df)
