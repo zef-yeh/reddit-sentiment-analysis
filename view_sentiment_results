@@ -8,8 +8,9 @@ query = '''
 SELECT 
     product,
     COUNT(*) AS mentions,
-    ROUND(AVG(sentiment), 3) AS avg_sentiment
-FROM comments
+    ROUND(AVG(sentiment), 3) AS avg_sentiment,
+    (SELECT body FROM comments c2 WHERE c2.product = c1.product ORDER BY sentiment DESC LIMIT 1) AS sample_comment
+FROM comments c1
 GROUP BY product
 HAVING mentions > 2
 ORDER BY avg_sentiment DESC
@@ -19,4 +20,9 @@ df = pd.read_sql_query(query, conn)
 conn.close()
 
 print("Top-Rated BIFL Products by Sentiment:\n")
-print(df)
+print(df[["product", "mentions", "avg_sentiment"]])
+
+# Display sample comments
+print("Sample Comments:\n")
+for _, row in df.iterrows():
+    print(f"\n{row['product']} (avg sentiment: {row['avg_sentiment']}):\n{row['sample_comment']}")
