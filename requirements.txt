@@ -1,0 +1,7 @@
+praw
+textblob
+sqlmodel
+pandas
+matplotlib
+scikit-learn
+nltk

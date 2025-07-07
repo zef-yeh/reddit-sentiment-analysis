@@ -28,3 +28,9 @@ reddit = praw.Reddit(
 def fetch_threads(product, limit=50):
     query = f'"{product}"'
     return reddit.subreddit("all").search(query, sort="relevance", limit=limit)
+
+if __name__ == "__main__":
+    print("Reddit API test:")
+    threads = fetch_threads("Yeti")
+    for t in threads:
+        print("-", t.title)
